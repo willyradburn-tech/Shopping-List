@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14171A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Shopping" />
+<meta name="description" content="A weekly shopping list with a running total and budget tracker." />
+<title>Shopping list</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#128722;</text></svg>" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Roboto+Mono:wght@400;500;700&display=swap');
+html, body { margin:0; padding:0; background:#F7F6F2; -webkit-text-size-adjust:100%; }
+body { --ink:#14171A; --paper:#F7F6F2; --rule:#CBC9C0; --muted:#7A786E; --till:#0B5D3B; --over:#A82D18;
+  background:var(--paper); color:var(--ink);
+  font-family:'Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace; }
+*, *::before, *::after { box-sizing:border-box; }
+.wrap { max-width:620px; margin:0 auto; padding:20px 14px 150px; }
+h1 { font-family:'Archivo',system-ui,sans-serif; font-weight:800; letter-spacing:-0.02em;
+  font-size:30px; line-height:1; margin:6px 0 2px; }
+.eyebrow { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); }
+.lede { font-size:11px; color:var(--muted); line-height:1.5; }
+hr { border:0; border-top:1px dashed var(--rule); margin:16px 0; }
+.cat { font-family:'Archivo',sans-serif; font-weight:700; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted); margin:22px 0 6px; display:flex; justify-content:space-between; }
+.row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px dotted var(--rule); }
+.box { width:24px; height:24px; min-width:24px; border:1.5px solid var(--ink); background:transparent;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; padding:0; color:var(--paper); }
+.box[data-on="1"] { background:var(--till); border-color:var(--till); }
+.names { flex:1; min-width:0; }
+input { border:0; background:transparent; font:inherit; color:inherit; padding:2px 0; outline:none; width:100%; border-radius:0; }
+input:focus { box-shadow:0 1px 0 0 var(--till); }
+.sub { font-size:11px; color:var(--muted); }
+.price { width:80px; }
+.price input { text-align:right; font-weight:500; }
+.row[data-done="1"] .names, .row[data-done="1"] .price { opacity:.42; text-decoration:line-through; }
+.x { background:none; border:0; color:var(--muted); cursor:pointer; font-size:18px; padding:0 4px; line-height:1; }
+.x:hover { color:var(--over); }
+.add { background:none; border:1px dashed var(--rule); color:var(--muted); font:inherit; font-size:12px;
+  padding:9px 10px; width:100%; cursor:pointer; margin-top:8px; }
+.add:hover { border-color:var(--till); color:var(--till); }
+.reset { background:none; border:0; color:var(--muted); font:inherit; font-size:11px; text-decoration:underline;
+  cursor:pointer; margin-top:24px; padding:0; }
+.warn { font-size:11px; color:var(--over); margin-top:14px; }
+button:focus-visible, input:focus-visible { outline:2px solid var(--till); outline-offset:2px; }
+.bar { position:fixed; left:0; right:0; bottom:0; background:var(--ink); color:var(--paper);
+  padding:12px 16px calc(16px + env(safe-area-inset-bottom)); }
+.bar-inner { max-width:620px; margin:0 auto; }
+.bar-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.total { font-family:'Archivo',sans-serif; font-weight:800; font-size:30px; letter-spacing:-0.02em; }
+.meta { font-size:11px; opacity:.65; letter-spacing:.06em; }
+#budget { border-bottom:1px solid rgba(247,246,242,.4); color:var(--paper); font-size:13px; width:62px; text-align:right; }
+#left { font-size:11px; letter-spacing:.06em; margin-top:4px; color:#4ADE80; }
+#left[data-over="1"] { color:#F87171; }
+.track { height:6px; background:rgba(247,246,242,.18); margin-top:10px; overflow:hidden; }
+#fill { height:100%; width:0; background:#4ADE80; transition:width .3s ease; }
+#fill[data-over="1"] { background:#F87171; }
+@media (prefers-reduced-motion: reduce) { #fill { transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Week of &middot; two adults</div>
+  <h1>Shopping list</h1>
+  <div class="lede">Tap any name or price to change it. Tick things off as they go in the trolley.</div>
+  <hr />
+  <div id="list"></div>
+  <div><button class="reset" id="reset">Start again from the original list</button></div>
+  <div class="warn" id="warn" hidden>This browser is blocking storage, so changes won't be here next visit.</div>
+</div>
+
+<div class="bar">
+  <div class="bar-inner">
+    <div class="bar-top">
+      <div>
+        <div class="total" id="total">$0.00</div>
+        <div class="meta" id="trolley"></div>
+      </div>
+      <div style="text-align:right">
+        <div class="meta">Budget $<input id="budget" type="number" inputmode="decimal" value="150" aria-label="Budget" /></div>
+        <div id="left"></div>
+      </div>
+    </div>
+    <div class="track"><div id="fill"></div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DEFAULT = [
+    { name: "Meat & eggs", items: [
+      ["Beef mince", "1.2kg", 15], ["Chicken thigh fillets", "1kg", 12], ["Rump steak", "~600g", 13],
+      ["Middle bacon", "1kg", 14], ["Eggs", "2 dozen", 20] ] },
+    { name: "Dairy & fats", items: [
+      ["Ghee", "375g", 9], ["Mainland Vintage", "500g", 12], ["Sour cream", "300g", 3.5], ["Milk", "", 0] ] },
+    { name: "Produce", items: [
+      ["Avocados", "x5", 9], ["Brown onions", "1kg", 3], ["Tomatoes", "", 4], ["Capsicum", "x2", 3],
+      ["Carrots", "1kg", 2], ["Garlic", "", 1], ["Iceberg or cabbage", "", 3] ] },
+    { name: "Pantry & carbs", items: [
+      ["Bread", "2 loaves", 6], ["Tortillas", "", 4], ["Packet ramen", "5-pack", 4],
+      ["Japanese curry roux", "S&B / Golden Curry", 5], ["Massaman paste", "", 3], ["Coconut milk", "x2", 3] ] }
+  ];
+
+  var KEY = "shopping-list-v1";
+  var listEl = document.getElementById("list");
+  var totalEl = document.getElementById("total");
+  var trolleyEl = document.getElementById("trolley");
+  var leftEl = document.getElementById("left");
+  var fillEl = document.getElementById("fill");
+  var budgetEl = document.getElementById("budget");
+  var warnEl = document.getElementById("warn");
+  var state, saveTimer;
+
+  function fresh() {
+    return {
+      budget: 150,
+      cats: DEFAULT.map(function (c) {
+        return { name: c.name, items: c.items.map(function (i) {
+          return { name: i[0], note: i[1], price: i[2], done: false };
+        }) };
+      })
+    };
+  }
+
+  function load() {
+    try {
+      var raw = window.localStorage.getItem(KEY);
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && d.cats && d.cats.length) return d;
+      }
+    } catch (e) {}
+    return fresh();
+  }
+
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try { window.localStorage.setItem(KEY, JSON.stringify(state)); }
+      catch (e) { warnEl.hidden = false; }
+    }, 300);
+  }
+
+  function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2); }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function totals() {
+    var planned = 0, trolley = 0, done = 0, count = 0;
+    state.cats.forEach(function (c, ci) {
+      var sub = 0;
+      c.items.forEach(function (it) {
+        var p = Number(it.price) || 0;
+        sub += p; planned += p; count++;
+        if (it.done) { trolley += p; done++; }
+      });
+      var s = document.getElementById("sub" + ci);
+      if (s) s.textContent = money(sub);
+    });
+    var budget = Number(state.budget) || 0;
+    var over = planned > budget;
+    totalEl.textContent = money(planned);
+    trolleyEl.textContent = money(trolley) + " in trolley \u00b7 " + done + "/" + count + " items";
+    leftEl.textContent = over ? money(planned - budget) + " over" : money(budget - planned) + " left";
+    leftEl.setAttribute("data-over", over ? "1" : "0");
+    fillEl.setAttribute("data-over", over ? "1" : "0");
+    fillEl.style.width = (budget > 0 ? Math.min(100, (planned / budget) * 100) : 0) + "%";
+  }
+
+  function makeRow(item, cat) {
+    var row = el("div", "row");
+    row.setAttribute("data-done", item.done ? "1" : "0");
+
+    var box = el("button", "box", item.done ? "\u2713" : "");
+    box.setAttribute("data-on", item.done ? "1" : "0");
+    box.setAttribute("aria-pressed", item.done ? "true" : "false");
+    box.setAttribute("aria-label", "Mark " + (item.name || "item") + " as in trolley");
+    box.addEventListener("click", function () {
+      item.done = !item.done;
+      row.setAttribute("data-done", item.done ? "1" : "0");
+      box.setAttribute("data-on", item.done ? "1" : "0");
+      box.setAttribute("aria-pressed", item.done ? "true" : "false");
+      box.textContent = item.done ? "\u2713" : "";
+      totals(); save();
+    });
+
+    var names = el("div", "names");
+    var name = el("input");
+    name.value = item.name; name.placeholder = "Item name";
+    name.addEventListener("input", function () { item.name = name.value; save(); });
+    var note = el("input", "sub");
+    note.value = item.note; note.placeholder = "size / note";
+    note.addEventListener("input", function () { item.note = note.value; save(); });
+    names.appendChild(name); names.appendChild(note);
+
+    var priceWrap = el("div", "price");
+    var price = el("input");
+    price.type = "number"; price.step = "0.5"; price.min = "0";
+    price.setAttribute("inputmode", "decimal");
+    price.value = item.price;
+    price.setAttribute("aria-label", "Price");
+    price.addEventListener("input", function () {
+      item.price = price.value === "" ? 0 : parseFloat(price.value) || 0;
+      totals(); save();
+    });
+    priceWrap.appendChild(price);
+
+    var kill = el("button", "x", "\u00d7");
+    kill.setAttribute("aria-label", "Remove item");
+    kill.addEventListener("click", function () {
+      var i = cat.items.indexOf(item);
+      if (i > -1) cat.items.splice(i, 1);
+      row.parentNode.removeChild(row);
+      totals(); save();
+    });
+
+    row.appendChild(box); row.appendChild(names); row.appendChild(priceWrap); row.appendChild(kill);
+    return row;
+  }
+
+  function render() {
+    listEl.textContent = "";
+    state.cats.forEach(function (cat, ci) {
+      var section = el("section");
+      var head = el("div", "cat");
+      head.appendChild(el("span", null, cat.name));
+      var sub = el("span", null, "$0.00");
+      sub.id = "sub" + ci;
+      head.appendChild(sub);
+      section.appendChild(head);
+
+      var rows = el("div");
+      cat.items.forEach(function (item) { rows.appendChild(makeRow(item, cat)); });
+      section.appendChild(rows);
+
+      var add = el("button", "add", "+ Add to " + cat.name.toLowerCase());
+      add.addEventListener("click", function () {
+        var item = { name: "", note: "", price: 0, done: false };
+        cat.items.push(item);
+        var row = makeRow(item, cat);
+        rows.appendChild(row);
+        row.querySelector("input").focus();
+        totals(); save();
+      });
+      section.appendChild(add);
+      listEl.appendChild(section);
+    });
+    totals();
+  }
+
+  budgetEl.addEventListener("input", function () {
+    state.budget = budgetEl.value === "" ? 0 : parseFloat(budgetEl.value) || 0;
+    totals(); save();
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    state = fresh();
+    budgetEl.value = state.budget;
+    render(); save();
+  });
+
+  state = load();
+  budgetEl.value = state.budget;
+  render();
+})();
+</script>
+</body>
+</html>
